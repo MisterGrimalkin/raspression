@@ -1,8 +1,12 @@
+import urllib
+import urllib2
 import RPi.GPIO as GPIO
 import time
 
-LATCH_MODE_1 = True
-LATCH_MODE_2 = True
+URL = "http://192.168.0.123:8005"
+
+LATCH_MODE_1 = False
+LATCH_MODE_2 = False
 
 SAMPLES = 1
 
@@ -83,6 +87,14 @@ def printAsInvertedBar(value, symbol):
 
     print outbar
 
+def postValues(v1, v2):
+    value = { "c1" : v1, "c2" : v2 }
+
+    data = urllib.urlencode(value)
+    req = urllib2.Request(URL, data)
+    response = urllib2.urlopen(req)
+    response.read()
+
 
 setup()
 last1 = 0
@@ -91,8 +103,8 @@ while True:
     tot1 = 0
     tot2 = 0
     for i in range(SAMPLES):
-        tot1 = tot1 + measureDistance(TRIG_1, ECHO_1, SENS_1)
-        tot2 = tot2 + measureDistance(TRIG_2, ECHO_2, SENS_2)
+        tot1 += measureDistance(TRIG_1, ECHO_1, SENS_1)
+        tot2 += measureDistance(TRIG_2, ECHO_2, SENS_2)
 
     avg1 = tot1 / SAMPLES
     avg2 = tot2 / SAMPLES
@@ -107,8 +119,10 @@ while True:
             avg2 = last2
         last2 = avg2
 
-    printAsBar(avg1, '#')
-    printAsBar(avg2, '=')
+    postValues(avg1, avg2)
+
+    #printAsBar(avg1, '#')
+    #printAsBar(avg2, '=')
 
 
 GPIO.cleanup()
