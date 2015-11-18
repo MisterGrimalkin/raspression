@@ -9,6 +9,9 @@ C1_CC = 0x66
 C2_STATUS_BYTE = 0xB0
 C2_CC = 0x67
 
+last1 = 0
+last2 = 0
+
 
 def startserver():
 
@@ -39,12 +42,22 @@ def startserver():
 
 
 def outputresult(data):
+    global last1, last2
     l = data.split(",")
     # print l[0].rjust(3), " ---- ", l[1].ljust(3)
+
     c1value = int(l[0])
+    if c1value != last1:
+        print "C1 : ", c1value
+        send_midi((C1_STATUS_BYTE, C1_CC, c1value))
+        last1 = c1value
+
     c2value = int(l[1])
-    send_midi((C1_STATUS_BYTE, C1_CC, c1value))
-    send_midi((C2_STATUS_BYTE, C2_CC, c2value))
+    if c2value != last2:
+        print "C2 : ", c2value
+        send_midi((C2_STATUS_BYTE, C2_CC, c2value))
+        last2 = c2value
+
 
 
 startserver()

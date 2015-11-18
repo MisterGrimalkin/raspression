@@ -98,15 +98,23 @@ while True:
         avg1 = tot1 / SAMPLES
         avg2 = tot2 / SAMPLES
 
+        # Hack to fix issue
+        if abs(avg1 - last1) > 100:
+            avg1 = 0
+
+        if abs(avg2 - last2) > 100:
+            avg2 = 0
+
         if LATCH_MODE_1:
             if avg1 == 0:
                 avg1 = last1
-            last1 = avg1
 
         if LATCH_MODE_2:
             if avg2 == 0:
                 avg2 = last2
-            last2 = avg2
+
+        last1 = avg1
+        last2 = avg2
 
         postmessage(str(avg1) + "," + str(avg2))
 
