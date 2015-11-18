@@ -48,13 +48,13 @@ def outputresult(data):
 
     c1value = int(l[0])
     if c1value != last1:
-        print "C1 : ", c1value
+        # print "C1 : ", c1value
         send_midi((C1_STATUS_BYTE, C1_CC, c1value))
         last1 = c1value
 
     c2value = int(l[1])
     if c2value != last2:
-        print "C2 : ", c2value
+        # print "C2 : ", c2value
         send_midi((C2_STATUS_BYTE, C2_CC, c2value))
         last2 = c2value
 
