@@ -17,7 +17,7 @@ ECHO_1 = 24
 TRIG_2 = 25
 ECHO_2 = 18
 
-SENS_1 = 200
+SENS_1 = 100
 SENS_2 = 100
 MIN = 25
 
