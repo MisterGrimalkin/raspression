@@ -63,9 +63,8 @@ class RaspressionServer:
                     print message
                     self.waitforclient()
                 else:
-
                     self.outputresult(self.converttomidivalues(message))
-                c.close()
+                    c.close()
 
             except socket.error:
                 print CLIENT_OFFLINE_MESSAGE
