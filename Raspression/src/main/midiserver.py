@@ -1,4 +1,4 @@
-__author__ = 'grimalkin'
+__author__ = 'Barri Mason'
 
 from raspressionmidiserver import *
 

@@ -1,126 +1,196 @@
-from raspression import *
+__author__ = 'Barri Mason'
 
-import RPi.GPIO as gpio
 import time
 import sys
 import socket
+import ConfigParser
 
-TRIG_1 = 23
-ECHO_1 = 24
-TRIG_2 = 25
-ECHO_2 = 18
+import RPi.GPIO as gpio
 
-SAMPLES = 5
-
-LOCAL_HOST = "192.168.0.70"
-PORT = 8888
-
-serverIp = ""
-serverOnline = False
+from raspression import *
 
 
-def setupGpio():
+##########################
+#   Raspression Client   #
+##########################
 
-    print "Starting Sensors...."
+
+local_host = ""
+server_host = ""
+
+sensor_config = {}
+samples = 0
+sensor_timeout = 1
+
+
+def start():
+
+    load_config()
+    setup_sensors()
+
+    try:
+        while True:
+            wait_for_server()
+            start_sensors()
+
+    except KeyboardInterrupt:
+        print "Shutting down"
+        post_message_safe(CLIENT_OFFLINE_MESSAGE)
+        gpio.cleanup()
+        sys.exit()
+
+
+def load_config():
+
+    print "Loading Configuration...."
+
+    global local_host, samples, sensor_timeout
+
+    parser = ConfigParser.ConfigParser()
+    parser.read("raspressionclient.config")
+
+    # local IP address
+    local_host = parser.get("General", "localHost")
+
+    # Measurement samples per reading
+    samples = int(parser.get("General", "samples"))
+
+    # Timeout for sensor measurement (seconds)
+    sensor_timeout = int(parser.get("General", "sensorTimeout"))
+
+    # GPIO pin numbers for each sensor
+    for section in parser.sections():
+        if section[0:6] == "Sensor":
+            sensor = int(section[6:])
+            sensor_config[sensor] = \
+                {"trig": int(parser.get(section, "triggerPin")),
+                 "echo": int(parser.get(section, "echoPin"))}
+
+
+def setup_sensors():
+
+    print "Setting up sensors...."
 
     gpio.setmode(gpio.BCM)
-    gpio.setup(TRIG_1, gpio.OUT)
-    gpio.setup(TRIG_2, gpio.OUT)
-    gpio.setup(ECHO_1, gpio.IN)
-    gpio.setup(ECHO_2, gpio.IN)
 
-    gpio.output(TRIG_1, False)
-    gpio.output(TRIG_2, False)
+    # initialise pins
+    for sensor in sensor_config:
+        config = sensor_config[sensor]
+        gpio.setup(config["echo"], gpio.IN)
+        gpio.setup(config["trig"], gpio.OUT)
+        gpio.output(config["trig"], False)
+
+    # Wait for sensors to settle
     time.sleep(2)
 
     print "Sensors ready"
 
 
-def waitforserver():
+def wait_for_server():
 
-    global serverIp
+    global server_host
 
     print "Waiting for Raspression server...."
 
+    found_server = False
+
+    # Start listening for the server
     s = socket.socket()
-    s.bind((LOCAL_HOST, PORT))
+    s.bind((local_host, PORT))
     s.listen(5)
-    foundserver = False
 
-    while not foundserver:
-        c, addr = s.accept()
+    while not found_server:
+        c, address = s.accept()
         message = c.recv(1024)
+
         if message == SERVER_ONLINE_MESSAGE:
-            serverIp = addr[0]
-            print "Found server", ":", serverIp
-            foundserver = True
+            server_host = address[0]
             s.close()
+            found_server = True
+
+        elif message == CLIENT_OFFLINE_MESSAGE:
+            s.close()
+            raise KeyboardInterrupt()
+
+    # Tell the server that client is online
+    post_message_safe(CLIENT_ONLINE_MESSAGE)
+
+    print "Found server: ", server_host
 
 
-def measureDistance(trig, echo):
+def start_sensors():
 
+    print "Starting sensor loop...."
+
+    while True:
+        try:
+            for sensor in sensor_config:
+                total = 0
+                for i in range(samples):
+                    total += measure_distance(sensor)
+                average = total / samples
+                post_message(str(sensor) + "=" + str(average))
+
+        except socket.error:
+            print SERVER_OFFLINE_MESSAGE
+            return
+
+
+def measure_distance(sensor):
+
+    # HC-SR04 ultrasonic sensor:
+    #   Put a brief pulse on the TRIG pin
+    #   The transmitter sends an ultrasonic burst
+    #   Sound bounces off object (hand)
+    #   The receiver senses the echo of the burst
+    #   A pulse comes in on the ECHO pin
+    #   The length of the pulse is the time between sound and echo
+
+    trig = sensor_config[sensor]["trig"]
+    echo = sensor_config[sensor]["echo"]
+
+    # Send ultrasound pulse
     gpio.output(trig, True)
     time.sleep(0.00001)
     gpio.output(trig, False)
 
-    scan_start = time.time()
-
     pulse_start = 0
+    pulse_end = 0
+
+    # Wait for echo pulse
+    scan_start = time.time()
     while gpio.input(echo) == 0:
         pulse_start = time.time()
-        if time.time() - scan_start > 1:
+        if time.time() - scan_start > sensor_timeout:
             break
 
-    pulse_end = 0
+    # Measure length of echo pulse
+    scan_start = time.time()
     while gpio.input(echo) == 1:
         pulse_end = time.time()
+        if time.time() - scan_start > sensor_timeout:
+            break
 
     pulse_duration = pulse_end - pulse_start
 
     return pulse_duration
 
 
-def postmessage(value):
+def post_message(message):
 
-    global serverIp, serverOnline
+    s = socket.socket()
+    s.connect((server_host, PORT))
+    s.send(message)
+    s.close()
+
+
+def post_message_safe(message):
 
     try:
-        s = socket.socket()
-        s.connect((serverIp, PORT))
-        s.send(value)
-        s.close()
-
-        if not serverOnline:
-            print SERVER_ONLINE_MESSAGE
-            serverOnline = True
-
+        post_message(message)
     except socket.error:
-        if serverOnline:
-            print SERVER_OFFLINE_MESSAGE
-            waitforserver()
+        pass
 
 
-
-setupGpio()
-waitforserver()
-postmessage(CLIENT_ONLINE_MESSAGE)
-
-while True:
-
-    try:
-        tot1 = 0
-        tot2 = 0
-        for i in range(SAMPLES):
-            tot1 += measureDistance(TRIG_1, ECHO_1)
-            tot2 += measureDistance(TRIG_2, ECHO_2)
-
-        avg1 = tot1 / SAMPLES
-        avg2 = tot2 / SAMPLES
-
-        postmessage(str(avg1) + "," + str(avg2))
-
-    except KeyboardInterrupt:
-        print "Shutting down"
-        postmessage(CLIENT_OFFLINE_MESSAGE)
-        gpio.cleanup()
-        sys.exit()
+if __name__ == '__main__':
+    start()

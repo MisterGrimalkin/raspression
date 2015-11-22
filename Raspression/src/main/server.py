@@ -1,5 +1,5 @@
-__author__ = 'grimalkin'
+__author__ = 'Barri Mason'
 
-from raspressionserver import *
+from raspressionserver import RaspressionServer
 
 RaspressionServer().start()
