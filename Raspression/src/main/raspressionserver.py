@@ -143,7 +143,6 @@ class RaspressionServer:
                 self.send_midi(sensor, midi_value)
                 self.sensor_config[sensor]["last"] = midi_value
 
-
     def as_midi(self, sensor, value):
 
         factor = 10000000
@@ -162,7 +161,6 @@ class RaspressionServer:
         return midi_val
 
     def send_midi(self, sensor, value):
-
         print sensor, "--->", value
 
     def __init__(self):
