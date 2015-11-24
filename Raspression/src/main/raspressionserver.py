@@ -1,14 +1,15 @@
-import threading
 
 __author__ = 'Barri Mason'
 
-import time
 import sys
+import time
 import socket
-import random
+import threading
 import ConfigParser as config
 
 from raspression import *
+from transitions import Linear
+from web_server import WebServer
 
 
 ##########################
@@ -16,18 +17,20 @@ from raspression import *
 ##########################
 
 
+def valid_midi(value):
+    return 0 <= value <= 127
+
+
 class RaspressionServer:
-    transition = None
 
     local_host = ""
     client_host = ""
 
     sensor_config = {}
 
-    def start(self):
+    ws = None
 
-        self.transition = Transition()
-        self.transition.start()
+    def start(self):
 
         if len(sys.argv) == 1:
             print "Please specify local IP address"
@@ -36,6 +39,16 @@ class RaspressionServer:
         self.local_host = sys.argv[1]
 
         self.load_config()
+
+        t = threading.Thread(target=self.start_raspression_server)
+        t.start()
+
+        global ws
+        ws = WebServer(self)
+
+        ws.start()
+
+    def start_raspression_server(self):
 
         try:
             while True:
@@ -46,9 +59,47 @@ class RaspressionServer:
                 self.listen(sock)
 
         except KeyboardInterrupt:
-            print "Shutting down"
-            self.transition.stop()
-            sys.exit()
+            self.shutdown()
+
+    def shutdown(self):
+        global ws
+        print "Shutting down"
+        for sensor in self.sensor_config:
+            self.sensor_config[sensor]["trans"].stop()
+        del ws
+        sys.exit()
+
+    def get_values(self, property):
+        result = {}
+        for sensor in self.sensor_config:
+            cfg = self.sensor_config[sensor]
+            result[sensor] = cfg[property]
+        return result
+
+    def set_min(self, sensor, value):
+        if valid_midi(value):
+            self.sensor_config[int(sensor)]["min"] = value
+
+    def set_max(self, sensor, value):
+        if valid_midi(value):
+            self.sensor_config[int(sensor)]["max"] = int(value)
+
+    def set_def(self, sensor, value):
+        if valid_midi(value):
+            self.sensor_config[int(sensor)]["def"] = int(value)
+
+    def set_cc(self, sensor, value):
+        if valid_midi(value):
+            self.sensor_config[int(sensor)]["cc"] = int(value)
+
+    def set_sens(self, sensor, value):
+        if 0 <= value <= 20000:
+            self.sensor_config[int(sensor)]["sens"] = int(value)
+
+    def set_time(self, sensor, value):
+        if 0 < value <= 30000:
+            self.sensor_config[sensor]["time"] = float(value/1000.0)
+        print self.sensor_config[sensor]["time"]
 
     def load_config(self):
 
@@ -71,7 +122,9 @@ class RaspressionServer:
                      "max": int(parser.get(section, "maxValue")),
                      "def": int(parser.get(section, "defaultValue")),
                      "time": float(parser.get(section, "trackingTime")),
+                     "trans": Linear(sensor),
                      "last": 0}
+                self.sensor_config[sensor]["trans"].start()
 
     def detect_client(self):
 
@@ -147,27 +200,41 @@ class RaspressionServer:
 
             midi_value = self.as_midi(sensor, value)
 
-            sc = self.sensor_config[sensor]
-            if midi_value != sc["last"]:
-                self.transition.slide_to(sensor, midi_value, sc["time"], self.send_midi)
-                sc["last"] = midi_value
+            cfg = self.sensor_config[sensor]
+
+            if midi_value != cfg["last"]:
+                cfg["trans"].slide_to(midi_value, cfg["time"], self.put_values)
 
     def as_midi(self, sensor, value):
 
         factor = 10000000
 
-        sens = self.sensor_config[sensor]["sens"]
-        min_value = self.sensor_config[sensor]["min"]
-        max_value = self.sensor_config[sensor]["max"]
+        cfg = self.sensor_config[sensor]
+
+        normalised_value = ((value * factor) - MIN_VALUE) / cfg["sens"]
+
+        min_value = cfg["min"]
+        max_value = cfg["max"]
+        def_value = cfg["def"]
         value_range = max_value - min_value
 
-        normalised_value = ((value * factor) - MIN_VALUE) / sens
+        val_before_offset = int(round((1 - normalised_value) * value_range, 0))
 
-        midi_val = int(round((1 - normalised_value) * value_range, 0)) + min_value
+        midi_val = val_before_offset + min_value
+
+        if val_before_offset == 0:
+            if def_value <= 0:
+                midi_val = cfg["last"]
+            elif def_value > 0:
+                midi_val = def_value
 
         midi_val = min(max(midi_val, min_value), max_value)
 
         return midi_val
+
+    def put_values(self, sensor, value):
+        self.sensor_config[sensor]["last"] = value
+        self.send_midi(sensor, value)
 
     def send_midi(self, sensor, value):
         print sensor, "--->", value
@@ -176,42 +243,3 @@ class RaspressionServer:
         pass
 
 
-class Transition(threading.Thread):
-
-    running = True
-
-    current_value = 0
-    target_value = 0
-    sensor = 0
-    delta = 0
-    func = None
-
-    tick = 0.0001
-
-    def run(self):
-        super(Transition, self).run()
-        while self.running:
-            if self.current_value != self.target_value:
-                if self.is_update():
-                    self.current_value += self.delta
-
-                if not self.is_update():
-                    self.current_value = self.target_value
-
-                if self.func is not None:
-                    self.func(self.sensor, self.current_value)
-
-            time.sleep(self.tick)
-
-    def is_update(self):
-        return (self.delta > 0 and self.current_value < self.target_value) \
-            or (self.delta < 0 and self.current_value > self.target_value)
-
-    def slide_to(self, sensor, value, duration, func):
-        self.target_value = value
-        self.sensor = sensor
-        self.func = func
-        self.delta = (self.target_value - self.current_value) / (duration / self.tick)
-
-    def stop(self):
-        self.running = False

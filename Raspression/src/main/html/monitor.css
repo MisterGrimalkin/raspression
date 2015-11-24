@@ -1,0 +1,51 @@
+.sensorContainer {
+    width: 204px;
+    height: 24px;
+    border: "1px solid black";
+    background: #000011;
+    float: left;
+    margin: 20px 20px 4px 50px;
+}
+
+.sensorBar {
+    width: 204px;
+    height: 20px;
+    margin: 2px;
+    background: #0099FF;
+
+}
+
+h1 {
+    font-family: courier;
+    background: #EEEEEE;
+    padding: 10px;
+    margin: 0px;
+}
+
+.label {
+    font-family: sans-serif;
+    float: left;
+    margin: 5px;
+}
+
+.slider {
+    float: left;
+    width: 200px;
+    height: 20px;
+    margin: 5px 0px 0px 0px;
+}
+
+.inner {
+    float: left;
+    border: 1px solid black;
+    width: 330px;
+    height: 300px;
+    margin: 10px;
+    box-shadow: 2px 2px 5px black;
+}
+
+.valuePanel {
+    width: 100%;
+    display: inline-block;
+    float: left;
+}
