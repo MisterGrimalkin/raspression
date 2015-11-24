@@ -1,19 +1,23 @@
+import threading
+
 __author__ = 'Barri Mason'
 
 import time
 import sys
 import socket
+import random
 import ConfigParser as config
 
 from raspression import *
 
 
 ##########################
-#   Raspression Server   #
+# Raspression Server   #
 ##########################
 
 
 class RaspressionServer:
+    transition = None
 
     local_host = ""
     client_host = ""
@@ -21,6 +25,9 @@ class RaspressionServer:
     sensor_config = {}
 
     def start(self):
+
+        self.transition = Transition()
+        self.transition.start()
 
         if len(sys.argv) == 1:
             print "Please specify local IP address"
@@ -40,6 +47,7 @@ class RaspressionServer:
 
         except KeyboardInterrupt:
             print "Shutting down"
+            self.transition.stop()
             sys.exit()
 
     def load_config(self):
@@ -139,9 +147,10 @@ class RaspressionServer:
 
             midi_value = self.as_midi(sensor, value)
 
-            if midi_value != self.sensor_config[sensor]["last"]:
-                self.send_midi(sensor, midi_value)
-                self.sensor_config[sensor]["last"] = midi_value
+            sc = self.sensor_config[sensor]
+            if midi_value != sc["last"]:
+                self.transition.slide_to(sensor, midi_value, sc["time"], self.send_midi)
+                sc["last"] = midi_value
 
     def as_midi(self, sensor, value):
 
@@ -166,3 +175,43 @@ class RaspressionServer:
     def __init__(self):
         pass
 
+
+class Transition(threading.Thread):
+
+    running = True
+
+    current_value = 0
+    target_value = 0
+    sensor = 0
+    delta = 0
+    func = None
+
+    tick = 0.0001
+
+    def run(self):
+        super(Transition, self).run()
+        while self.running:
+            if self.current_value != self.target_value:
+                if self.is_update():
+                    self.current_value += self.delta
+
+                if not self.is_update():
+                    self.current_value = self.target_value
+
+                if self.func is not None:
+                    self.func(self.sensor, self.current_value)
+
+            time.sleep(self.tick)
+
+    def is_update(self):
+        return (self.delta > 0 and self.current_value < self.target_value) \
+            or (self.delta < 0 and self.current_value > self.target_value)
+
+    def slide_to(self, sensor, value, duration, func):
+        self.target_value = value
+        self.sensor = sensor
+        self.func = func
+        self.delta = (self.target_value - self.current_value) / (duration / self.tick)
+
+    def stop(self):
+        self.running = False
