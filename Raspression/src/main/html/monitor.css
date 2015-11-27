@@ -49,3 +49,17 @@ h1 {
     display: inline-block;
     float: left;
 }
+
+button {
+    clear: left;
+    float: none;
+    width: 90px;
+    height: 30px;
+    border: none;
+    display: block;
+    border-radius: 3px;
+    background: black;
+    color: white;
+    font-size: 18px;
+    margin: 0px 10px 10px 10px;
+}

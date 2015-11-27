@@ -22,6 +22,7 @@ sensor_config = {}
 samples = 0
 sensor_timeout = 1
 
+MAX_SENSOR_VALUE = 0.011
 
 def start():
 
@@ -34,11 +35,14 @@ def start():
             start_sensors()
 
     except KeyboardInterrupt:
-        print "Shutting down"
-        post_message_safe(CLIENT_OFFLINE_MESSAGE)
-        gpio.cleanup()
-        sys.exit()
+        shutdown()
 
+
+def shutdown():
+    print "Shutting down"
+    post_message_safe(CLIENT_OFFLINE_MESSAGE)
+    gpio.cleanup()
+    sys.exit()
 
 def load_config():
 
@@ -62,9 +66,13 @@ def load_config():
     for section in parser.sections():
         if section[0:6] == "Sensor":
             sensor = int(section[6:])
-            sensor_config[sensor] = \
-                {"trig": int(parser.get(section, "triggerPin")),
-                 "echo": int(parser.get(section, "echoPin"))}
+            create_sensor(sensor, int(parser.get(section, "triggerPin")), int(parser.get(section, "echoPin")))
+
+
+def create_sensor(sensor, trig, echo):
+    sensor_config[sensor] = \
+        {"trig": int(trig),
+         "echo": int(echo)}
 
 
 def setup_sensors():
@@ -165,10 +173,9 @@ def measure_distance(sensor):
             break
 
     # Measure length of echo pulse
-    scan_start = time.time()
     while gpio.input(echo) == 1:
         pulse_end = time.time()
-        if time.time() - scan_start > sensor_timeout:
+        if pulse_end - pulse_start > MAX_SENSOR_VALUE:
             break
 
     pulse_duration = pulse_end - pulse_start

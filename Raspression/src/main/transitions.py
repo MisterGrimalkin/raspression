@@ -31,6 +31,8 @@ class Linear(threading.Thread):
                 if not self.is_update():
                     self.current_value = self.target_value
 
+                self.current_value = int(round(self.current_value, 0))
+
                 if self.func is not None:
                     self.func(self.sensor, self.current_value)
 
@@ -47,6 +49,31 @@ class Linear(threading.Thread):
         else:
             self.delta = (self.target_value - self.current_value) / (duration / self.tick)
         self.func = func
+
+    def stop(self):
+        self.running = False
+
+
+class Instant(threading.Thread):
+
+    sensor = -1
+
+    tick = 0.001
+    running = True
+
+    def __init__(self, sensor):
+        super(Instant, self).__init__()
+        self.sensor = sensor
+
+    def run(self):
+        super(Instant, self).run()
+
+        while self.running:
+            time.sleep(self.tick)
+
+    def slide_to(self, value, duration, func):
+        if func is not None:
+            func(self.sensor, value)
 
     def stop(self):
         self.running = False

@@ -9,6 +9,7 @@ import ConfigParser as config
 
 from raspression import *
 from transitions import Linear
+from transitions import Instant
 from web_server import WebServer
 
 
@@ -43,14 +44,11 @@ class RaspressionServer:
         t = threading.Thread(target=self.start_raspression_server)
         t.start()
 
-        global ws
-        ws = WebServer(self)
-
-        ws.start()
+        WebServer(self).start()
 
     def start_raspression_server(self):
 
-        try:
+        # try:
             while True:
                 sock = None
                 while sock is None:
@@ -58,15 +56,14 @@ class RaspressionServer:
                     sock = self.create_socket()
                 self.listen(sock)
 
-        except KeyboardInterrupt:
-            self.shutdown()
+        # except KeyboardInterrupt:
+        #     self.shutdown()
 
     def shutdown(self):
-        global ws
         print "Shutting down"
         for sensor in self.sensor_config:
             self.sensor_config[sensor]["trans"].stop()
-        del ws
+        sys.exitfunc()
         sys.exit()
 
     def get_values(self, property):
@@ -122,9 +119,13 @@ class RaspressionServer:
                      "max": int(parser.get(section, "maxValue")),
                      "def": int(parser.get(section, "defaultValue")),
                      "time": float(parser.get(section, "trackingTime")),
-                     "trans": Linear(sensor),
+                     "trans": Instant(sensor),
                      "last": 0}
                 self.sensor_config[sensor]["trans"].start()
+
+    def save_config(self):
+
+        print "Saving Configuration"
 
     def detect_client(self):
 
@@ -211,6 +212,7 @@ class RaspressionServer:
 
         cfg = self.sensor_config[sensor]
 
+
         normalised_value = ((value * factor) - MIN_VALUE) / cfg["sens"]
 
         min_value = cfg["min"]
@@ -228,7 +230,7 @@ class RaspressionServer:
             elif def_value > 0:
                 midi_val = def_value
 
-        midi_val = min(max(midi_val, min_value), max_value)
+        midi_val = int(round(min(max(midi_val, min_value), max_value),0))
 
         return midi_val
 

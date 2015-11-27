@@ -1,8 +1,10 @@
-host = "192.168.0.14"
+host = "192.168.0.123";
 
 sensorCount = 2;
 
 function onload() {
+
+    console.log("onload");
 
     for ( var i=0; i<sensorCount; i++) {
         createSensorPanel(i);
@@ -16,8 +18,6 @@ function onload() {
 
     setInterval(monitorValues, 100)
 }
-
-sensors = [];
 
 function createSensorPanel(s) {
 
@@ -38,8 +38,7 @@ function createSensorPanel(s) {
     sensorBar.className = "sensorBar"
     sensorBar.id = "sensor" + s;
     sensorContainer.appendChild(sensorBar);
-
-    sensors[s] = sensorBar
+    sensorBar.style.width = 0;
 
     inner.appendChild(createValueControl(s, "Min", "min", 0, 127));
     inner.appendChild(createValueControl(s, "Max", "max", 0, 127));
@@ -94,9 +93,9 @@ function createChangeFunction(sensor, name) {
 
 function monitorValues() {
 
-    for ( sensor in sensors ) {
-        get(host, "value/"+sensor,
-        createUpdateFunction(sensor),
+    for ( var i=0; i<sensorCount; i++) {
+        get(host, "value/"+i,
+        createUpdateFunction(i),
         errorAlert("Failed"))
     }
 
@@ -117,7 +116,7 @@ function shutdownServer() {
 }
 
 function getVal(sensor, name) {
-    get(host, name + "/"+sensor+"/0",
+    get(host, name + "/"+sensor,
         function(req) {
             v = parseInt(req.responseText)
             e = element("sensor"+sensor+"-"+name+"-slider")
@@ -129,5 +128,9 @@ function getVal(sensor, name) {
 
 function setVal(sensor, name) {
     e = element("sensor"+sensor+"-"+name+"-slider");
-    post(host, name + "/"+sensor+"/"+e.value, null, null, "");
+    get(host, name + "/"+sensor+"/"+e.value, null, null);
+}
+
+function saveValues() {
+    get(host, "save", null, null);
 }
