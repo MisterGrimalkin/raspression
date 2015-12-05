@@ -24,7 +24,7 @@ class Linear(threading.Thread):
         super(Linear, self).run()
 
         while self.running:
-            if self.current_value != self.target_value:
+            if abs(self.current_value - self.target_value) >= abs(self.delta):
                 if self.is_update():
                     self.current_value += self.delta
 

@@ -21,6 +21,7 @@ server_host = ""
 sensor_config = {}
 samples = 0
 sensor_timeout = 1
+sample_delay = 0
 
 MAX_SENSOR_VALUE = 0.011
 
@@ -48,7 +49,7 @@ def load_config():
 
     print "Loading Configuration...."
 
-    global local_host, samples, sensor_timeout
+    global local_host, samples, sensor_timeout, sample_delay
 
     parser = ConfigParser.ConfigParser()
     parser.read("raspressionclient.config")
@@ -58,6 +59,9 @@ def load_config():
 
     # Measurement samples per reading
     samples = int(parser.get("General", "samples"))
+
+    # Sample Delay
+    sample_delay = float(parser.get("General", "sampleDelay"))
 
     # Timeout for sensor measurement (seconds)
     sensor_timeout = int(parser.get("General", "sensorTimeout"))
@@ -138,6 +142,8 @@ def start_sensors():
                     total += measure_distance(sensor)
                 average = total / samples
                 post_message(str(sensor) + "=" + str(average))
+
+            time.sleep(sample_delay)
 
         except socket.error:
             print SERVER_OFFLINE_MESSAGE

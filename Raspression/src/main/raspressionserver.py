@@ -4,6 +4,7 @@ __author__ = 'Barri Mason'
 import sys
 import time
 import socket
+
 import threading
 import ConfigParser as config
 
@@ -11,6 +12,7 @@ from raspression import *
 from transitions import Linear
 from transitions import Instant
 from web_server import WebServer
+from moving_average import AverageQueue
 
 
 ##########################
@@ -29,6 +31,8 @@ class RaspressionServer:
 
     sensor_config = {}
 
+    queues = {}
+
     ws = None
 
     def start(self):
@@ -41,14 +45,17 @@ class RaspressionServer:
 
         self.load_config()
 
-        t = threading.Thread(target=self.start_raspression_server)
-        t.start()
+        self.start_raspression_server()
+        # t = threading.Thread(target=self.start_raspression_server)
+        # t.start()
 
-        WebServer(self).start()
+        # WebServer(self).start()
 
     def start_raspression_server(self):
 
-        # try:
+        print "Starting...."
+
+        try:
             while True:
                 sock = None
                 while sock is None:
@@ -56,21 +63,20 @@ class RaspressionServer:
                     sock = self.create_socket()
                 self.listen(sock)
 
-        # except KeyboardInterrupt:
-        #     self.shutdown()
+        except KeyboardInterrupt:
+            self.shutdown()
 
     def shutdown(self):
         print "Shutting down"
         for sensor in self.sensor_config:
             self.sensor_config[sensor]["trans"].stop()
-        sys.exitfunc()
         sys.exit()
 
-    def get_values(self, property):
+    def get_values(self, prop):
         result = {}
         for sensor in self.sensor_config:
             cfg = self.sensor_config[sensor]
-            result[sensor] = cfg[property]
+            result[sensor] = cfg[prop]
         return result
 
     def set_min(self, sensor, value):
@@ -112,16 +118,20 @@ class RaspressionServer:
         for section in parser.sections():
             if section[0:6] == "Sensor":
                 sensor = int(section[6:])
+                self.queues[sensor] = AverageQueue(int(parser.get(section, "samples")))
                 self.sensor_config[sensor] = \
                     {"sens": int(parser.get(section, "sensitivity")),
                      "cc": int(parser.get(section, "midiCC")),
                      "min": int(parser.get(section, "minValue")),
                      "max": int(parser.get(section, "maxValue")),
                      "def": int(parser.get(section, "defaultValue")),
-                     "time": float(parser.get(section, "trackingTime")),
+                     "slideup": float(parser.get(section, "slideUp")),
+                     "slidedown": float(parser.get(section, "slideDown")),
                      "trans": Instant(sensor),
-                     "last": 0}
+                     "value": 0}
                 self.sensor_config[sensor]["trans"].start()
+
+        print "OK"
 
     def save_config(self):
 
@@ -199,19 +209,27 @@ class RaspressionServer:
             sensor = int(l[0])
             value = float(l[1])
 
+            queue = self.queues[sensor]
+
             midi_value = self.as_midi(sensor, value)
+            queue.put_value(midi_value)
+            avg_value = int(queue.get_average())
 
             cfg = self.sensor_config[sensor]
 
-            if midi_value != cfg["last"]:
-                cfg["trans"].slide_to(midi_value, cfg["time"], self.put_values)
+            if avg_value != cfg["value"]:
+
+                trans_time = cfg["slideup"]
+                if avg_value < cfg["value"]:
+                    trans_time = cfg["slidedown"]
+
+                cfg["trans"].slide_to(avg_value, trans_time, self.put_value)
 
     def as_midi(self, sensor, value):
 
         factor = 10000000
 
         cfg = self.sensor_config[sensor]
-
 
         normalised_value = ((value * factor) - MIN_VALUE) / cfg["sens"]
 
@@ -226,16 +244,16 @@ class RaspressionServer:
 
         if val_before_offset == 0:
             if def_value <= 0:
-                midi_val = cfg["last"]
+                midi_val = cfg["value"]
             elif def_value > 0:
                 midi_val = def_value
 
-        midi_val = int(round(min(max(midi_val, min_value), max_value),0))
+        midi_val = int(round(min(max(midi_val, min_value), max_value), 0))
 
         return midi_val
 
-    def put_values(self, sensor, value):
-        self.sensor_config[sensor]["last"] = value
+    def put_value(self, sensor, value):
+        self.sensor_config[sensor]["value"] = value
         self.send_midi(sensor, value)
 
     def send_midi(self, sensor, value):
