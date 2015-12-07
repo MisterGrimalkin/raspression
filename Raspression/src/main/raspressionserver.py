@@ -39,17 +39,41 @@ class RaspressionServer:
 
         if len(sys.argv) == 1:
             print "Please specify local IP address"
+            print "Then add 'webservice' to make values available via HTTP"
+            print ""
             sys.exit()
+
+        with_web_service = False
+        if len(sys.argv) > 2:
+            if sys.argv[2] == "webservice":
+                with_web_service = True
 
         self.local_host = sys.argv[1]
 
         self.load_config()
 
-        self.start_raspression_server()
-        # t = threading.Thread(target=self.start_raspression_server)
-        # t.start()
+        t = threading.Thread(target=self.start_raspression_server)
+        t.daemon = True
+        t.start()
 
-        # WebServer(self).start()
+        if with_web_service:
+            ws = WebServer(self)
+            ws.daemon = True
+            ws.start()
+
+        t.join()
+
+        try:
+            while True:
+                print "??"
+                pass
+        except KeyboardInterrupt:
+            print "Exiting..."
+            del ws
+            del t
+            sys.exit()
+
+
 
     def start_raspression_server(self):
 
@@ -99,10 +123,13 @@ class RaspressionServer:
         if 0 <= value <= 20000:
             self.sensor_config[int(sensor)]["sens"] = int(value)
 
-    def set_time(self, sensor, value):
+    def set_slide_up(self, sensor, value):
         if 0 < value <= 30000:
-            self.sensor_config[sensor]["time"] = float(value/1000.0)
-        print self.sensor_config[sensor]["time"]
+            self.sensor_config[sensor]["slideup"] = float(value/1000.0)
+
+    def set_slide_down(self, sensor, value):
+        if 0 < value <= 30000:
+            self.sensor_config[sensor]["slidedown"] = float(value/1000.0)
 
     def load_config(self):
 
@@ -127,7 +154,7 @@ class RaspressionServer:
                      "def": int(parser.get(section, "defaultValue")),
                      "slideup": float(parser.get(section, "slideUp")),
                      "slidedown": float(parser.get(section, "slideDown")),
-                     "trans": Instant(sensor),
+                     "trans": Linear(sensor),
                      "value": 0}
                 self.sensor_config[sensor]["trans"].start()
 
@@ -222,6 +249,8 @@ class RaspressionServer:
                 trans_time = cfg["slideup"]
                 if avg_value < cfg["value"]:
                     trans_time = cfg["slidedown"]
+
+                trans_time = float(trans_time/1000)
 
                 cfg["trans"].slide_to(avg_value, trans_time, self.put_value)
 

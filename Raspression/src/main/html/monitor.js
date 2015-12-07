@@ -12,7 +12,8 @@ function onload() {
         getVal(i, "max");
         getVal(i, "def");
         getVal(i, "sens");
-        getVal(i, "time");
+        getVal(i, "slideup");
+        getVal(i, "slidedown");
         getVal(i, "cc");
     }
 
@@ -43,7 +44,8 @@ function createSensorPanel(s) {
     inner.appendChild(createValueControl(s, "Min", "min", 0, 127));
     inner.appendChild(createValueControl(s, "Max", "max", 0, 127));
     inner.appendChild(createValueControl(s, "Def", "def", -1, 127));
-    inner.appendChild(createValueControl(s, "Slide", "time", 0, 2000));
+    inner.appendChild(createValueControl(s, "Slide ^", "slideup", 0, 2000));
+    inner.appendChild(createValueControl(s, "Slide v", "slidedown", 0, 2000));
     inner.appendChild(createValueControl(s, "Sens", "sens", 0, 20000));
     inner.appendChild(createValueControl(s, "CC", "cc", 0, 127));
 
@@ -55,7 +57,7 @@ function createValueControl(s, label, name, min, max) {
 
     lbl = createWithText("P", label);
     lbl.className = "label";
-    lbl.style.width = "40px";
+    lbl.style.width = "50px";
     inner.appendChild(lbl);
 
     slider = document.createElement("INPUT");

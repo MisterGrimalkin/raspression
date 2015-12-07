@@ -13,7 +13,7 @@ class Linear(threading.Thread):
     delta = 0
     func = None
 
-    tick = 0.001
+    tick = 0.1
     running = True
 
     def __init__(self, sensor):
@@ -24,23 +24,21 @@ class Linear(threading.Thread):
         super(Linear, self).run()
 
         while self.running:
-            if abs(self.current_value - self.target_value) >= abs(self.delta):
-                if self.is_update():
+            distance = self.current_value - self.target_value
+
+            if self.delta != 0:
+                if abs(distance) <= abs(self.delta):
+                    self.current_value = self.target_value
+                    self.delta = 0
+                else:
                     self.current_value += self.delta
 
-                if not self.is_update():
-                    self.current_value = self.target_value
-
-                self.current_value = int(round(self.current_value, 0))
+                self.current_value = int(self.current_value)
 
                 if self.func is not None:
                     self.func(self.sensor, self.current_value)
 
             time.sleep(self.tick)
-
-    def is_update(self):
-        return (self.delta > 0 and self.current_value < self.target_value) \
-            or (self.delta < 0 and self.current_value > self.target_value)
 
     def slide_to(self, value, duration, func):
         self.target_value = value

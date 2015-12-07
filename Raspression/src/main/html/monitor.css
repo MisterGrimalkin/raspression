@@ -4,7 +4,7 @@
     border: "1px solid black";
     background: #000011;
     float: left;
-    margin: 20px 20px 4px 50px;
+    margin: 20px 20px 4px 60px;
 }
 
 .sensorBar {
@@ -39,7 +39,7 @@ h1 {
     float: left;
     border: 1px solid black;
     width: 330px;
-    height: 300px;
+    height: 330px;
     margin: 10px;
     box-shadow: 2px 2px 5px black;
 }
