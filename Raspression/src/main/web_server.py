@@ -88,6 +88,7 @@ class Def:
     def GET(self, sensor):
         return rasp_server.get_values("def")[int(sensor)]
 
+
 class SetDef:
     def GET(self, sensor, value):
         rasp_server.set_def(int(sensor), int(value))

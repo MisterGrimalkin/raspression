@@ -1,6 +1,6 @@
-host = "192.168.0.123";
+host = "192.168.0.8";
 
-sensorCount = 2;
+sensorCount = 4;
 
 function onload() {
 
@@ -20,6 +20,14 @@ function onload() {
     setInterval(monitorValues, 100)
 }
 
+function getName(sensor) {
+    if ( sensor == 0 ) return "EAST";
+    if ( sensor == 1 ) return "SOUTH";
+    if ( sensor == 2 ) return "WEST";
+    if ( sensor == 3 ) return "NORTH";
+    return "Nowhere";
+}
+
 function createSensorPanel(s) {
 
     main = element("main")
@@ -28,7 +36,7 @@ function createSensorPanel(s) {
     inner.className = "inner";
     main.appendChild(inner);
 
-    h1 = createWithText("H1", "Sensor " + s);
+    h1 = createWithText("H1", getName(s));
     inner.appendChild(h1);
 
     sensorContainer = document.createElement("DIV");
